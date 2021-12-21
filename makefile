@@ -26,7 +26,7 @@ $(PROJ)$(EXE) : $(PROJ).c
 	$(CC) $(CFLAGS) $(PROJ)$(EXE) $(PROJ).c $(LFLAGS)
 
 clean :
-	@$(RM) $(PROJ)$(EXE) $(PROJ)$(OBJ) $(PROJ)_proto.h
+	@$(RM) $(PROJ)$(EXE) $(PROJ)$(OBJ)
 
 install : $(PROJ)$(EXE)
 	@$(CP) $(PROJ)$(EXE) $(BIN_DIR)
