@@ -12,7 +12,8 @@
 
   Aufruf: nth-prime Nummer (> 0) [Nummer (> 0)] 
 
-  Compile: cc nth-prime.c -o nth-prime -lm
+  Compile: cc -O2 -lm -o nth-prime nth-prime.c
+     oder: cl /nologo /O2 /Fe: nth-prime.exe nth-prime.c
 ------------------------------------------------------------------------------*/
 #include <math.h>
 #include <stdio.h>
