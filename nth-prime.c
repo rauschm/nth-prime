@@ -2,7 +2,7 @@
   N T H - P R I M E . C
 
   Ausgabe der n-ten Primzahl
-  
+
   Wenn nur ein Argument (n) angegeben wird, dann wird genau diese n-te Primzahl
   ausgegeben.
   Wenn zwei Argumente (n0,n1) angegeben werden und n0 <= n1 ist, dann werden alle
@@ -12,7 +12,7 @@
 
   Aufruf: nth-prime Nummer (> 0) [Nummer (> 0)] 
 
-  Compile: cc -O2 -lm -o nth-prime nth-prime.c
+  Compile: cc -O2 -o nth-prime nth-prime.c -lm
      oder: cl /nologo /O2 /Fe: nth-prime.exe nth-prime.c
 ------------------------------------------------------------------------------*/
 #include <math.h>
@@ -103,9 +103,6 @@ Parameters reinterprete_parameters(Parameters p) {
 ------------------------------------------------------------------------------*/
 void print_primes(unsigned long long int n_start, unsigned long long int n) {
   unsigned int nth_prime_estimated_square_root = estimate_square_root_of_nth_prime(n);
-  //-------------------------------------------------------------------------------- DEBUG
-  // printf("nth_prime_estimated_square_root = %u\n", nth_prime_estimated_square_root);
-  //-------------------------------------------------------------------------------- DEBUG
   Sieve sieve = build_sieve(nth_prime_estimated_square_root);
   sieve_primes(n_start, n, nth_prime_estimated_square_root, sieve.width, sieve.data);
 }
@@ -116,9 +113,6 @@ void print_primes(unsigned long long int n_start, unsigned long long int n) {
 ------------------------------------------------------------------------------*/
 unsigned int estimate_square_root_of_nth_prime(unsigned long long int n) {
   unsigned long long int nth_prime_estimated = inverse_pi(n);
-  //---------------------------------------------------------- DEBUG
-  // printf("nth_prime_estimated = %llu\n", nth_prime_estimated);
-  //---------------------------------------------------------- DEBUG
   if (nth_prime_estimated == 0) {
     fprintf(stderr, "value %llu too large\n", n);
     exit(2);
@@ -131,13 +125,13 @@ unsigned int estimate_square_root_of_nth_prime(unsigned long long int n) {
 
   pi(x) ist die Funktion, die angibt, wie viele Primzahlen <= x es gibt.
   x/ln(x) ist eine Näherung für pi(x). Mit INV_xlnx als Umkehrfunktion gilt:
-  
+
        x/ln(x)           < pi(x)       = n (für 10 < x < 2^64)
   <=>  INV_xlnx(x/ln(x)) < INV_xlnx(n)
   <=>  x                 < INV_xlnx(n)
 
   Die Schätzung ist mindestens 2% zu groß (ab n > 3).
-  
+
   Wenn das Ergebnis zu groß ist, wird 0 zurückgegeben.
 
   Vermutlich aus Gründen der Rechenungenauigkeit ist der größte mögliche
@@ -145,11 +139,6 @@ unsigned int estimate_square_root_of_nth_prime(unsigned long long int n) {
   In diesem Fall ist der Ausgabewert = 18.446.744.073.709.548.545 (knapp 2^64).
 ------------------------------------------------------------------------------*/
 unsigned long long int inverse_pi(unsigned long long int n) {
-  //const unsigned long long int max_n_computable = 415828534307635104ULL;
-  //if (n > max_n_computable) {
-  //  return 0;
-  //}
-
   if (n <= 2) {
     return n == 1 ? 2 : 3;
   }
@@ -185,10 +174,6 @@ Sieve build_sieve(unsigned int nth_prime_estimated_square_root) {
   }
 
   sieve.width = round_up_to_next_power_of_2(nth_prime_estimated_square_root * 2);
-  //---------------------------------------- DEBUG
-  // printf("max_root = %u\n", max_root);
-  // printf("sieve.width ? %u\n", sieve.width);
-  //---------------------------------------- DEBUG
   size_t sieve_size = sieve.width * sizeof(sieve.data[0]);
   sieve.data = malloc(sieve_size);
   if (sieve.data == NULL) {
@@ -242,7 +227,7 @@ void sieve_primes(unsigned long long int n_start, unsigned long long int n,
         sieve[j] = factor;
         factor = smaller_factor;
       }
-    } while (1);  
+    } while (1);
     sieve[j] = factor;
   }
 }
