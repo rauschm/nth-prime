@@ -1,7 +1,7 @@
-@rem -------------------------------------------------------------------
-@rem verify that nth-prime is working correctly for at least some known
-@rem numbers of primes < 10^n, taken from here: https://oeis.org/A006880
-@rem -------------------------------------------------------------------
+@rem ----------------------------------------------------------------------
+@rem --- verify that nth-prime is working correctly for at least some known
+@rem --- numbers of primes < 10^n, taken from: https://oeis.org/A006880
+@rem ----------------------------------------------------------------------
 @for %%n in (
 5
 26
@@ -24,6 +24,6 @@
   echo ----------------------------------------
 )
 
-rem 2623557157654234  only 64 bit
-rem 24739954287740861 only 64 bit
-rem 234057667276344608
+@rem 2623557157654234  only 64 bit
+@rem 24739954287740861 only 64 bit
+@rem 234057667276344608
