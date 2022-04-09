@@ -9,6 +9,7 @@ ifeq ($(OS),Windows_NT)
   BIN_DIR = c:\doc\bin
   VERIFY = verify.bat
 else
+  SHELL = /usr/bin/bash
   EXE =
   OBJ = .o
   CC  = cc
