@@ -50,20 +50,20 @@ unsigned int round_up_to_next_power_of_2(unsigned int v);
 /*------------------------------------------------------------------------------
   Beginn der Verarbeitung 
 ------------------------------------------------------------------------------*/
-void main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
   Parameters p = get_parameters(argc, argv);
 
   if (p.n_start == 1) {
     printf("1. prime = 2\n");
     if (p.n == 1) {
-      exit(0);
+      return 0;
     }
     p.n_start = 2;
   }
 
   print_primes(p.n_start, p.n);
 
-  exit(0);
+  return 0;
 }
 
 /*------------------------------------------------------------------------------
