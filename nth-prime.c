@@ -1,12 +1,12 @@
 /*------------------------------------------------------------------------------
   N T H - P R I M E . C
 
-  Ausgabe der n-ten Primzahl
+  Ausgabe aller Primzahlen (< 2^64) zwischen der n_start-ten und der n-ten
 
   Wenn nur ein Argument (n) angegeben wird, dann wird genau diese n-te Primzahl
   ausgegeben.
   Wenn zwei Argumente (n0,n1) angegeben werden und n0 <= n1 ist, dann werden alle
-  Primzahlen von der n0-ten bis zu n1-ten ausgegeben.
+  Primzahlen von der n0-ten bis zur n1-ten ausgegeben.
   Wenn zwei Argumente (n,c) angegeben werden und n > c ist, dann werden die c
   Primzahlen vor der n-ten (einschlieﬂlich) ausgegeben.
 
@@ -15,6 +15,7 @@
   Compile: cc -O2 -o nth-prime nth-prime.c -lm
      oder: cl /nologo /O2 /Fe: nth-prime.exe nth-prime.c
 ------------------------------------------------------------------------------*/
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,14 +24,17 @@
 /*------------------------------------------------------------------------------
  Datentypen
 ------------------------------------------------------------------------------*/
+typedef unsigned long long int uint64;
+typedef unsigned int           uint32;
+
 typedef struct {
-  unsigned long long int n_start;
-  unsigned long long int n;
+  uint64 n_start;
+  uint64 n;
 } Parameters;
 
 typedef struct {
-  unsigned int  width;
-  unsigned int* data;
+  uint64  width_mask;
+  uint32* data;
 } Sieve;
 
 /*------------------------------------------------------------------------------
@@ -38,31 +42,32 @@ typedef struct {
 ------------------------------------------------------------------------------*/
 Parameters get_parameters(int argc, char** argv);
 Parameters reinterprete_parameters(Parameters p);
-void print_primes(unsigned long long int n0, unsigned long long int n);
-Sieve build_sieve(unsigned int nth_prime_estimated_square_root);
-void sieve_primes(unsigned long long int n_start, unsigned long long int n,
-                  unsigned int nth_prime_estimated_square_root,
-                  unsigned int sieve_width, unsigned int* sieve);
-unsigned int estimate_square_root_of_nth_prime(unsigned long long int n);
-unsigned long long int inverse_pi(unsigned long long int n);
-unsigned int round_up_to_next_power_of_2(unsigned int v);
+void print_primes(uint64 n);
+void print_prime(uint64 prime_number);
+Sieve build_sieve(uint32 sqrt_n);
+void sieve_primes(uint64 n, uint32 sqrt_p, uint64 sieve_width_mask, uint32* sieve_data);
+uint64 inverse_pi(uint64 n);
+uint64 atoul(const char* s);
+uint32 integer_square_root(uint64 x);
+uint64 round_up_to_next_power_of_2(uint64 x);
+
+/*------------------------------------------------------------------------------
+  globale Variablen
+------------------------------------------------------------------------------*/
+uint64 n_start;
+
+/*------------------------------------------------------------------------------
+  Macros
+------------------------------------------------------------------------------*/
+#define odd(n) ((n - 1) | 1)
 
 /*------------------------------------------------------------------------------
   Beginn der Verarbeitung 
 ------------------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
   Parameters p = get_parameters(argc, argv);
-
-  if (p.n_start == 1) {
-    printf("1. prime = 2\n");
-    if (p.n == 1) {
-      return 0;
-    }
-    p.n_start = 2;
-  }
-
-  print_primes(p.n_start, p.n);
-
+  n_start = p.n_start;
+  print_primes(p.n);
   return 0;
 }
 
@@ -73,10 +78,10 @@ Parameters get_parameters(int argc, char** argv) {
   Parameters p;
 
   if (   argc != 2 && argc != 3
-      || argc == 2 && (   strlen(argv[1]) > 19 || (p.n_start = p.n = atoll(argv[1])) < 1)
-      || argc == 3 && (   strlen(argv[1]) > 19 || (p.n_start =       atoll(argv[1])) < 1
-                       || strlen(argv[2]) > 19 || (            p.n = atoll(argv[2])) < 1)) {
-     fprintf(stderr, "usage: nth-prime Number (in (0,1e19)) [Number (in (0,1e19))]\n");
+      || argc == 2 && (   (p.n_start = p.n = atoul(argv[1])) < 1)
+      || argc == 3 && (   (p.n_start =       atoul(argv[1])) < 1
+                       || (            p.n = atoul(argv[2])) < 1)) {
+     fprintf(stderr, "usage: nth-prime Number (in (0,2^64)) [Number/Count (in (0,2^64))]\n");
      exit(1);
   }
   p = reinterprete_parameters(p);
@@ -90,7 +95,7 @@ Parameters get_parameters(int argc, char** argv) {
 ------------------------------------------------------------------------------*/
 Parameters reinterprete_parameters(Parameters p) {
   if (! (p.n_start <= p.n)) {
-    unsigned long long int count = p.n;
+    uint64 count = p.n;
     p.n = p.n_start;
     p.n_start = p.n - (count - 1);
   }
@@ -98,27 +103,97 @@ Parameters reinterprete_parameters(Parameters p) {
 }
 
 /*------------------------------------------------------------------------------
-  Mit dem Sieb des Eratosthenes werden alle Primzahlen zwischen der n_start-ten
-  und der n-ten ausgeben
+  Gibt alle Primzahlen bis zur n-ten aus.
 ------------------------------------------------------------------------------*/
-void print_primes(unsigned long long int n_start, unsigned long long int n) {
-  unsigned int nth_prime_estimated_square_root = estimate_square_root_of_nth_prime(n);
-  Sieve sieve = build_sieve(nth_prime_estimated_square_root);
-  sieve_primes(n_start, n, nth_prime_estimated_square_root, sieve.width, sieve.data);
-}
-
-/*------------------------------------------------------------------------------
-  liefert die Quadratwurzel der Sch‰tzung f¸r die n-te Primzahl
-  (die n‰chst kleinere ungerade ganze Zahl)
-------------------------------------------------------------------------------*/
-unsigned int estimate_square_root_of_nth_prime(unsigned long long int n) {
-  unsigned long long int nth_prime_estimated = inverse_pi(n);
-  if (nth_prime_estimated == 0) {
+void print_primes(uint64 n) {
+  uint64 p = inverse_pi(n);
+  if (p == 0) {
     fprintf(stderr, "value %llu too large\n", n);
     exit(2);
   }
-  return ((unsigned int) sqrt((double) nth_prime_estimated) - 1) | 1;
+
+  print_prime(2);
+  uint32 sqrt_p = odd(integer_square_root(p));
+  Sieve sieve = build_sieve(sqrt_p);
+  sieve_primes(n, sqrt_p, sieve.width_mask, sieve.data);
 }
+
+/*------------------------------------------------------------------------------
+  Gibt die Primzahl und deren Nummer aus.
+
+  Primzahlen < der n_start-ten werden nicht ausgegeben.
+------------------------------------------------------------------------------*/
+void print_prime(uint64 prime_number) {
+  static uint64 primes_count = 0;
+  primes_count += 1;
+  if (primes_count >= n_start) {
+    printf("%llu. prime = %llu\n", primes_count, prime_number);
+  }
+}
+
+/*------------------------------------------------------------------------------
+  Baut ein Sieb auf, das ausreichend groﬂ und mit Nullen initialisiert ist.
+
+  Speicher wird in einer Grˆﬂenordnung von 2 mal der Wurzel von n benˆtigt.
+------------------------------------------------------------------------------*/
+Sieve build_sieve(uint32 sqrt_p) {
+  Sieve sieve;
+
+  uint64 sieve_width = round_up_to_next_power_of_2((uint64) sqrt_p * 2);
+  uint64 sieve_size = sieve_width * sizeof(sieve.data[0]);
+  sieve.width_mask = sieve_width - 1;
+  
+  if (   sieve_size > (size_t) sieve_size && (errno = ENOMEM)
+      || (sieve.data = malloc((size_t) sieve_size)) == NULL) {
+    perror("memory error");
+    exit(3);
+  }
+  memset(sieve.data, 0, (size_t) sieve_size);
+  return sieve;
+}
+
+/*------------------------------------------------------------------------------
+  Berechnet mit dem Algorithmus des Eratosthenes alle Primzahlen ab 3 bis zur
+  n-ten und gibt sie aus.
+------------------------------------------------------------------------------*/
+void sieve_primes(uint64 n, uint32 sqrt_p, uint64 sieve_width_mask, uint32* sieve_data) {
+  uint64 count_primes = 1;
+  uint64 i = 0;
+
+  for (uint64 number = 3; count_primes < n; number += 2) {
+    i = (i + 1) & sieve_width_mask;
+    uint32 factor;
+    if (sieve_data[i] == 0) {
+      count_primes += 1;
+      print_prime(number);
+      if (number > sqrt_p) {
+        continue;
+      }
+      factor = (uint32) number;
+    } else {
+      factor = sieve_data[i];
+      sieve_data[i] = 0;
+    }
+
+    uint64 j = i;
+    do {
+      j = (j + factor) & sieve_width_mask;
+      if (sieve_data[j] == 0) {
+        break;
+      }
+      if (sieve_data[j] < factor) {
+        uint32 smaller_factor = sieve_data[j];
+        sieve_data[j] = factor;
+        factor = smaller_factor;
+      }
+    } while (1);
+    sieve_data[j] = factor;
+  }
+}
+
+/*==============================================================================
+  allgemeine Funktionen
+==============================================================================*/
 
 /*------------------------------------------------------------------------------
   inverse_pi(n) ist eine (obere) Absch‰tzung f¸r n-te Primzahl.
@@ -138,13 +213,13 @@ unsigned int estimate_square_root_of_nth_prime(unsigned long long int n) {
   Eingabewert nur = 415.828.534.307.635.104.
   In diesem Fall ist der Ausgabewert = 18.446.744.073.709.548.545 (knapp 2^64).
 ------------------------------------------------------------------------------*/
-unsigned long long int inverse_pi(unsigned long long int n) {
+uint64 inverse_pi(uint64 n) {
   if (n <= 2) {
     return n == 1 ? 2 : 3;
   }
 
-  unsigned long long int x = 0;
-  for (unsigned long long int delta = ~((~0ULL) >> 1); delta > 0; delta /= 2) {
+  uint64 x = 0;
+  for (uint64 delta = ~((~0ULL) >> 1); delta > 0; delta /= 2) {
     if ((x - delta) / log((double) (x - delta)) >= n) {
       x -= delta;
     }
@@ -153,95 +228,42 @@ unsigned long long int inverse_pi(unsigned long long int n) {
 }
 
 /*------------------------------------------------------------------------------
-  Ein Sieb wird aufgebaut, das ausreichend groﬂ und mit Nullen initialisiert ist
-
-  Speicher wird in einer Grˆﬂenordnung der Wurzel der n-ten Primzahl benˆtigt.
-
-  Abh‰ngig vom verf¸gbaren Speicher betr‰gt der maximale Eingabewert:
-  1 GB :    481.283.032.799.095 (32 Bit)
-  2 GB:   1.856.377.398.776.709
-  4 GB :  7.169.457.514.106.638
-  8 GB : 27.721.902.337.570.149 (64 Bit)
+  convert a string to an unsigned long integer
 ------------------------------------------------------------------------------*/
-Sieve build_sieve(unsigned int nth_prime_estimated_square_root) {
-  Sieve sieve;
-  const unsigned int max_root = 1024 / sizeof(sieve.data[0]) / 2
-                              * ((sizeof(void*) == 4) ? 1 : 8) * 1024 * 1024 - 1;
+uint64 atoul(const char* str) {
+  uint64 ull = 0;
 
-  if (nth_prime_estimated_square_root > max_root) {
-    fprintf(stderr, "value would need too much memory\n");
-    exit(3);
+  while (*str != 0) {
+    if ((*str < '0' || *str > '9')
+      || ull > 1844674407370955161ULL
+      || (ull *= 10) > 18446744073709551615ULL - (*str - '0')) {
+      return 0;
+    }
+    ull += (*str++ - '0');
   }
-
-  sieve.width = round_up_to_next_power_of_2(nth_prime_estimated_square_root * 2);
-  size_t sieve_size = sieve.width * sizeof(sieve.data[0]);
-  sieve.data = malloc(sieve_size);
-  if (sieve.data == NULL) {
-    perror("memory error");
-    exit(4);
-  }
-  memset(sieve.data, 0, sieve_size);
-  return sieve;
+  return ull;
 }
 
 /*------------------------------------------------------------------------------
-  Hier werden mit dem Algorithmus des Eratosthenes alle Primzahlen ab 3 bis zur
-  n-ten berechnet. Ab der n_start-ten Primzahl werden sie ausgegeben.
+  Berechnet ISQRT = die ganzzahlige 32-Bit Qudratwurzel einer 64-Bit-Zahl.
+  Es gilt: ISQRT^2 <= x.
 ------------------------------------------------------------------------------*/
-void sieve_primes(unsigned long long int n_start, unsigned long long int n,
-                  unsigned int nth_prime_estimated_square_root,
-                  unsigned int sieve_width, unsigned int* sieve) {
-  unsigned long long int count_primes = 1;
-  unsigned long long int number = 1;
-  unsigned int i = 0;
-
-  while (1) {
-    i = (i + 1) & (sieve_width - 1);
-    number += 2;
-    unsigned int factor;
-    if (sieve[i] == 0) {
-      count_primes += 1;
-      if (count_primes >= n_start) {
-        printf("%llu. prime = %llu\n", count_primes, number);
-        if (count_primes == n) {
-          return;
-        }
-      }
-      if (number > nth_prime_estimated_square_root) {
-        continue;
-      }
-      factor = (unsigned int) number;
-    } else {
-      factor = sieve[i];
-      sieve[i] = 0;
-    }
-
-    unsigned int j = i;
-    do {
-      j = (j + factor) & (sieve_width - 1);
-      if (sieve[j] == 0) {
-        break;
-      }
-      if (sieve[j] < factor) {
-        unsigned int smaller_factor = sieve[j];
-        sieve[j] = factor;
-        factor = smaller_factor;
-      }
-    } while (1);
-    sieve[j] = factor;
-  }
+uint32 integer_square_root(uint64 x) {
+  uint32 y = (uint32) sqrt((double) x);
+  return ((uint64) y * (uint64) y <= x) ? y : (y - 1);
 }
 
 /*------------------------------------------------------------------------------
   zur n‰chsten Potenz von 2 aufrunden
 ------------------------------------------------------------------------------*/
-unsigned int round_up_to_next_power_of_2(unsigned int v) {
-  v -= 1;
-  v |= v >> 1;
-  v |= v >> 2;
-  v |= v >> 4;
-  v |= v >> 8;
-  v |= v >> 16;
-  v += 1;
-  return v;
+uint64 round_up_to_next_power_of_2(uint64 x) {
+  x -= 1;
+  x |= x >> 1;
+  x |= x >> 2;
+  x |= x >> 4;
+  x |= x >> 8;
+  x |= x >> 16;
+  x |= x >> 32;
+  x += 1;
+  return x;
 }

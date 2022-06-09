@@ -8,3 +8,6 @@ If there are two arguments (n,m) and n > m then nth-prime shows all prime number
 
 The code limits the memory usage to a little bit more than 1 GB (8 GB for 64 bit programs).
 Because of that memory limitation, the argument value (the larger one) has to be at most 481.283.032.799.095 (27.721.902.337.570.149 for 64 bit).
+
+Some interesting values:
+203280221. prime = 4294967291 < 2<sup>32</sup> < 203280222. prime = 4294967311
